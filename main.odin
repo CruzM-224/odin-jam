@@ -17,11 +17,12 @@ main :: proc() {
 	endPos : Point
 
 	drawnLines : [dynamic]Line
-	drawnPixels : [dynamic]Point
+
+	timePassed : f32 = 0
 
     windowWidth : i32 = 800
     windowHeight : i32 = 600
-
+	
 	rl.InitWindow(windowWidth, windowHeight, "Game")
 	rl.SetTargetFPS(60)
 
@@ -34,7 +35,6 @@ main :: proc() {
 		if(rl.IsMouseButtonDown(rl.MouseButton.RIGHT)){
 			temp := rl.GetMousePosition()
 			tempPoint : Point = {x=i32(temp[0]), y=i32(temp[1])}
-			append(&drawnPixels, tempPoint)
 
 			if(startPos.x != -1){
 				endPos = startPos
@@ -47,6 +47,14 @@ main :: proc() {
 			fmt.println(startPos)
 			fmt.println(endPos)
 			append(&drawnLines, Line{startPos, endPos})
+		}else{
+			timePassed += deltaTime
+			if(timePassed >= 0.1){
+				timePassed = 0
+				if(len(drawnLines) > 0){
+					ordered_remove(&drawnLines, 0)
+				}
+			}
 		}
 		
 		for value in drawnLines {
