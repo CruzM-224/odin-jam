@@ -22,6 +22,10 @@ main :: proc() {
 		width, height : i32
 	}
 
+	// palette
+	colorPath : rl.Color = {242, 235, 204, 255}
+	colorMap : rl.Color = {205, 229, 217, 255}
+
 	startPos : Point = {-1, -1}
 	endPos : Point
 
@@ -54,24 +58,30 @@ main :: proc() {
 		tilesMap[8]  = [columns]bool{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false}
 		tilesMap[9]  = [columns]bool{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false}
 		tilesMap[11] = [columns]bool{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false}
+		
 		return tilesMap
 	}
 	
-	tilesDrawn : MapBool
-	tilesDrawn = getTilesDrawnClean()
+	tilesDrawn : MapBool = getTilesDrawnClean()
 	
-	objectsMap : MapInt
-	objectsMap[0]  = [columns]int{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-	objectsMap[1]  = [columns]int{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-	objectsMap[2]  = [columns]int{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-	objectsMap[3]  = [columns]int{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-	objectsMap[4]  = [columns]int{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-	objectsMap[5]  = [columns]int{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-	objectsMap[6]  = [columns]int{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-	objectsMap[7]  = [columns]int{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-	objectsMap[8]  = [columns]int{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-	objectsMap[9]  = [columns]int{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-	objectsMap[11] = [columns]int{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	getObjectsMap :: proc() -> MapInt {
+		objectsMap : MapInt
+		objectsMap[0]  = [columns]int{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+		objectsMap[1]  = [columns]int{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+		objectsMap[2]  = [columns]int{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+		objectsMap[3]  = [columns]int{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+		objectsMap[4]  = [columns]int{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+		objectsMap[5]  = [columns]int{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+		objectsMap[6]  = [columns]int{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+		objectsMap[7]  = [columns]int{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+		objectsMap[8]  = [columns]int{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+		objectsMap[9]  = [columns]int{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+		objectsMap[11] = [columns]int{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+
+		return objectsMap
+	}
+
+	objectsMap : MapInt = getObjectsMap()
 	
 	// Finish 0 - 2, Begin 9 - 11
 	getFinishPos :: proc() -> (int, int) {
@@ -100,6 +110,8 @@ main :: proc() {
 	beginPos : tilePos
 	beginPos.row, beginPos.column = getBeginPos()
 
+	objectsMap[beginPos.row][beginPos.column], objectsMap[finishPos.row][finishPos.column] = 1, 2
+
 	rl.InitWindow(windowWidth, windowHeight, "Game")
 	rl.SetTargetFPS(60)
 
@@ -107,14 +119,14 @@ main :: proc() {
 		deltaTime := rl.GetFrameTime()
 		
 		rl.BeginDrawing()
-		rl.ClearBackground(rl.BLUE)
+		rl.ClearBackground(colorMap)
 
 		for i : i32 = 0; i < windowHeight; i += tiles.height {
 			for j : i32 = 0; j < windowWidth; j += tiles.width {
-				rl.DrawRectangleLines(j, i, tiles.width, tiles.height, rl.BLACK)
-				if(tilesDrawn[i/tiles.height][j/tiles.width]){
-					rl.DrawRectangle(j, i, tiles.width, tiles.height, rl.BLACK)
+				if(tilesDrawn[i/tiles.height][j/tiles.width] && objectsMap[i/tiles.height][j/tiles.width] == 0){
+					rl.DrawRectangle(j, i, tiles.width, tiles.height, colorPath)
 				}
+				rl.DrawRectangleLines(j, i, tiles.width, tiles.height, rl.BLACK)
 			}
 		}
 
@@ -162,7 +174,7 @@ main :: proc() {
 		
 		rl.EndDrawing()
 
-		rl.DrawRectangle(i32(finishPos.column) * tiles.width, i32(finishPos.row) * tiles.height, tiles.width, tiles.height, rl.RED)
-		rl.DrawRectangle(i32(beginPos.column) * tiles.width, i32(beginPos.row) * tiles.height, tiles.width, tiles.height, rl.GREEN)
+		rl.DrawRectangle(i32(finishPos.column) * tiles.width, i32(finishPos.row) * tiles.height, tiles.width, tiles.height, rl.BLACK)
+		rl.DrawRectangle(i32(beginPos.column) * tiles.width, i32(beginPos.row) * tiles.height, tiles.width, tiles.height, rl.BLACK)
 	}
 }
