@@ -44,27 +44,8 @@ main :: proc() {
 
 	MapBool :: [rows][columns]bool
 	MapInt :: [rows][columns]int
-
-	getTilesDrawnClean :: proc() -> MapBool {
-		tilesMap : MapBool
-		tilesMap[0]  = [columns]bool{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false}
-		tilesMap[1]  = [columns]bool{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false}
-		tilesMap[2]  = [columns]bool{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false}
-		tilesMap[3]  = [columns]bool{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false}
-		tilesMap[4]  = [columns]bool{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false}
-		tilesMap[5]  = [columns]bool{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false}
-		tilesMap[6]  = [columns]bool{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false}
-		tilesMap[7]  = [columns]bool{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false}
-		tilesMap[8]  = [columns]bool{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false}
-		tilesMap[9]  = [columns]bool{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false}
-		tilesMap[11] = [columns]bool{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false}
-		
-		return tilesMap
-	}
 	
-	tilesDrawn : MapBool = getTilesDrawnClean()
-	
-	getObjectsMap :: proc() -> MapInt {
+	getObjectsMapClean :: proc() -> MapInt {
 		objectsMap : MapInt
 		objectsMap[0]  = [columns]int{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 		objectsMap[1]  = [columns]int{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
@@ -81,7 +62,7 @@ main :: proc() {
 		return objectsMap
 	}
 
-	objectsMap : MapInt = getObjectsMap()
+	objectsMap : MapInt
 	
 	// Finish 0 - 2, Begin 9 - 11
 	getFinishPos :: proc() -> (int, int) {
@@ -95,7 +76,6 @@ main :: proc() {
 	}
 
 	finishPos : tilePos
-	finishPos.row, finishPos.column = getFinishPos()
 
 	getBeginPos :: proc() -> (int, int) {
 		beginRowRange : [2]int = {10, 11}
@@ -108,9 +88,22 @@ main :: proc() {
 	}
 
 	beginPos : tilePos
-	beginPos.row, beginPos.column = getBeginPos()
 
-	objectsMap[beginPos.row][beginPos.column], objectsMap[finishPos.row][finishPos.column] = 1, 2
+	// Begin: 1, End: 2, Path: 3,
+	Values :: enum {Empty, Begin, End, Path}
+
+	setInitialMap :: proc() -> (MapInt, tilePos, tilePos){
+		objectsMap : MapInt = getObjectsMapClean()
+		beginPos : tilePos
+		finishPos : tilePos
+		beginPos.row, beginPos.column = getBeginPos()
+		finishPos.row, finishPos.column = getFinishPos()
+		objectsMap[beginPos.row][beginPos.column], objectsMap[finishPos.row][finishPos.column] = int(Values.Begin), int(Values.End)
+	
+		return objectsMap, beginPos, finishPos
+	}
+
+	objectsMap, beginPos, finishPos = setInitialMap()
 
 	rl.InitWindow(windowWidth, windowHeight, "Game")
 	rl.SetTargetFPS(60)
@@ -123,7 +116,7 @@ main :: proc() {
 
 		for i : i32 = 0; i < windowHeight; i += tiles.height {
 			for j : i32 = 0; j < windowWidth; j += tiles.width {
-				if(tilesDrawn[i/tiles.height][j/tiles.width] && objectsMap[i/tiles.height][j/tiles.width] == 0){
+				if(objectsMap[i/tiles.height][j/tiles.width] == int(Values.Path)){
 					rl.DrawRectangle(j, i, tiles.width, tiles.height, colorPath)
 				}
 				rl.DrawRectangleLines(j, i, tiles.width, tiles.height, rl.BLACK)
@@ -151,9 +144,8 @@ main :: proc() {
 				timePassed = 0
 				if(len(drawnLines) > 0){
 					row, column = drawnLines[0].startPos.y/tiles.height, drawnLines[0].startPos.x/tiles.width
-					if(!tilesDrawn[row][column]){
-						
-						tilesDrawn[row][column] = true
+					if(objectsMap[row][column] == int(Values.Empty)){
+						objectsMap[row][column] = int(Values.Path)
 					}
 					ordered_remove(&drawnLines, 0)
 				}else{
@@ -167,13 +159,11 @@ main :: proc() {
 		}
 
 		if(rl.IsKeyPressed(rl.KeyboardKey.R)){
-			finishPos.row, finishPos.column = getFinishPos()
-			beginPos.row, beginPos.column = getBeginPos()
-			tilesDrawn = getTilesDrawnClean()
+			objectsMap, beginPos, finishPos = setInitialMap()
 		}
 		
 		rl.EndDrawing()
-
+		fmt.println(objectsMap)
 		rl.DrawRectangle(i32(finishPos.column) * tiles.width, i32(finishPos.row) * tiles.height, tiles.width, tiles.height, rl.BLACK)
 		rl.DrawRectangle(i32(beginPos.column) * tiles.width, i32(beginPos.row) * tiles.height, tiles.width, tiles.height, rl.BLACK)
 	}
