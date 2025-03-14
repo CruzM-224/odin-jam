@@ -42,6 +42,9 @@ main :: proc() {
 	rows, columns : i32 : windowHeight/tiles.height, windowWidth/tiles.width
 	row, column : i32
 
+	// Empty: 0, Begin: 1, End: 2, Path: 3, Obstacle: 4
+	Values :: enum {Empty, Begin, End, Path, Obstacle}
+
 	MapBool :: [rows][columns]bool
 	MapInt :: [rows][columns]int
 	
@@ -89,8 +92,15 @@ main :: proc() {
 
 	beginPos : tilePos
 
-	// Begin: 1, End: 2, Path: 3,
-	Values :: enum {Empty, Begin, End, Path}
+	getObstaclePos :: proc() -> (int, int) {
+		obstacleRowRange : [12]int = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}
+		obstacleColumnRange : [16]int = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
+		
+		obstacleRow := int(rand.choice(obstacleRowRange[:]))
+		obstacleColumn := int(rand.choice(obstacleColumnRange[:]))
+
+		return obstacleRow, obstacleColumn
+	}
 
 	setInitialMap :: proc() -> (MapInt, tilePos, tilePos){
 		objectsMap : MapInt = getObjectsMapClean()
@@ -99,7 +109,17 @@ main :: proc() {
 		beginPos.row, beginPos.column = getBeginPos()
 		finishPos.row, finishPos.column = getFinishPos()
 		objectsMap[beginPos.row][beginPos.column], objectsMap[finishPos.row][finishPos.column] = int(Values.Begin), int(Values.End)
-	
+		
+		qtyObstacles := rand.int_max(32)
+		for qtyObstacles > 0 {
+			obstaclePos : tilePos
+			obstaclePos.row, obstaclePos.column = getObstaclePos()
+			if(objectsMap[obstaclePos.row][obstaclePos.column] == int(Values.Empty)){
+				objectsMap[obstaclePos.row][obstaclePos.column] = int(Values.Obstacle)
+				qtyObstacles -= 1
+			}
+		}
+
 		return objectsMap, beginPos, finishPos
 	}
 
@@ -118,6 +138,10 @@ main :: proc() {
 			for j : i32 = 0; j < windowWidth; j += tiles.width {
 				if(objectsMap[i/tiles.height][j/tiles.width] == int(Values.Path)){
 					rl.DrawRectangle(j, i, tiles.width, tiles.height, colorPath)
+				}else{
+					if(objectsMap[i/tiles.height][j/tiles.width] == int(Values.Obstacle)){
+						rl.DrawRectangle(j, i, tiles.width, tiles.height, rl.GREEN)
+					}
 				}
 				rl.DrawRectangleLines(j, i, tiles.width, tiles.height, rl.BLACK)
 			}
@@ -161,10 +185,19 @@ main :: proc() {
 		if(rl.IsKeyPressed(rl.KeyboardKey.R)){
 			objectsMap, beginPos, finishPos = setInitialMap()
 		}
-		
-		rl.EndDrawing()
-		fmt.println(objectsMap)
+		if(rl.IsMouseButtonPressed(rl.MouseButton.LEFT)){
+			temp := rl.GetMousePosition()
+			tempPoint : Point = {x=i32(temp[0]), y=i32(temp[1])}
+			row, column = tempPoint.y/tiles.height, tempPoint.x/tiles.width
+			if(objectsMap[row][column] == int(Values.Empty)){
+				objectsMap[row][column] = int(Values.Obstacle)
+			}
+		}
+
 		rl.DrawRectangle(i32(finishPos.column) * tiles.width, i32(finishPos.row) * tiles.height, tiles.width, tiles.height, rl.BLACK)
 		rl.DrawRectangle(i32(beginPos.column) * tiles.width, i32(beginPos.row) * tiles.height, tiles.width, tiles.height, rl.BLACK)
+
+		rl.EndDrawing()
+		fmt.println(objectsMap)
 	}
 }
