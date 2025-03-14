@@ -6,6 +6,9 @@ import "core:math/rand"
 
 main :: proc() {
 
+	textureCharacter : rl.Texture2D
+	textureTree : rl.Texture2D
+
 	Point :: struct {
 		x, y : i32
 	}
@@ -31,13 +34,24 @@ main :: proc() {
 
 	drawnLines : [dynamic]Line
 
+	obstaclesCap : int = 32
+
+	obstaclesPos := make([dynamic]tilePos, 0, obstaclesCap)
+
 	timePassed : f32 = 0
 	timeToDelete : f32 = 0.01
+	cont : f32 = 0
+	timeToWalk : f32 = 0.5
 
     windowWidth : i32 : 800
     windowHeight : i32 : 600
 
+	walk : bool = false
+	obstaclesInit : bool = false
+
 	tiles : Rectangle : {50, 50}
+	character : Rectangle : {30, 40}
+	tree : Rectangle : {30, 60}
 
 	rows, columns : i32 : windowHeight/tiles.height, windowWidth/tiles.width
 	row, column : i32
@@ -48,6 +62,13 @@ main :: proc() {
 	MapBool :: [rows][columns]bool
 	MapInt :: [rows][columns]int
 	
+	beginPos : tilePos
+	finishPos : tilePos
+	objectsMap : MapInt
+	objectsMapBeginCopy : MapInt
+	characterPos : tilePos
+	qtyObstacles : int
+
 	getObjectsMapClean :: proc() -> MapInt {
 		objectsMap : MapInt
 		objectsMap[0]  = [columns]int{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
@@ -64,8 +85,6 @@ main :: proc() {
 
 		return objectsMap
 	}
-
-	objectsMap : MapInt
 	
 	// Finish 0 - 2, Begin 9 - 11
 	getFinishPos :: proc() -> (int, int) {
@@ -78,7 +97,6 @@ main :: proc() {
 		return finishRow, finishColumn
 	}
 
-	finishPos : tilePos
 
 	getBeginPos :: proc() -> (int, int) {
 		beginRowRange : [2]int = {10, 11}
@@ -90,7 +108,7 @@ main :: proc() {
 		return beginRow, beginColumn
 	}
 
-	beginPos : tilePos
+	
 
 	getObstaclePos :: proc() -> (int, int) {
 		obstacleRowRange : [12]int = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}
@@ -102,7 +120,7 @@ main :: proc() {
 		return obstacleRow, obstacleColumn
 	}
 
-	setInitialMap :: proc() -> (MapInt, tilePos, tilePos){
+	setInitialMap :: proc() -> (MapInt, tilePos, tilePos, int){
 		objectsMap : MapInt = getObjectsMapClean()
 		beginPos : tilePos
 		finishPos : tilePos
@@ -110,7 +128,8 @@ main :: proc() {
 		finishPos.row, finishPos.column = getFinishPos()
 		objectsMap[beginPos.row][beginPos.column], objectsMap[finishPos.row][finishPos.column] = int(Values.Begin), int(Values.End)
 		
-		qtyObstacles := rand.int_max(32)
+		qtyObstacles := rand.int_max(32 /* obstacleCap */)
+		qtyObstaclesBegin := qtyObstacles
 		for qtyObstacles > 0 {
 			obstaclePos : tilePos
 			obstaclePos.row, obstaclePos.column = getObstaclePos()
@@ -120,12 +139,18 @@ main :: proc() {
 			}
 		}
 
-		return objectsMap, beginPos, finishPos
+		return objectsMap, beginPos, finishPos, qtyObstaclesBegin
 	}
 
-	objectsMap, beginPos, finishPos = setInitialMap()
+	objectsMap, beginPos, finishPos, qtyObstacles = setInitialMap()
+	objectsMapBeginCopy = objectsMap
+	characterPos = beginPos
 
 	rl.InitWindow(windowWidth, windowHeight, "Game")
+
+	textureCharacter = rl.LoadTexture("sprites/character.png")
+	textureTree = rl.LoadTexture("sprites/tree.png")
+
 	rl.SetTargetFPS(60)
 
 	for !rl.WindowShouldClose() {
@@ -140,12 +165,15 @@ main :: proc() {
 					rl.DrawRectangle(j, i, tiles.width, tiles.height, colorPath)
 				}else{
 					if(objectsMap[i/tiles.height][j/tiles.width] == int(Values.Obstacle)){
-						rl.DrawRectangle(j, i, tiles.width, tiles.height, rl.GREEN)
+						if !obstaclesInit {
+							append(&obstaclesPos, tilePos{int(i/tiles.height), int(j/tiles.width)})
+						}
 					}
 				}
 				rl.DrawRectangleLines(j, i, tiles.width, tiles.height, rl.BLACK)
 			}
 		}
+		obstaclesInit = true
 
 		if(rl.IsMouseButtonDown(rl.MouseButton.RIGHT)){
 			temp := rl.GetMousePosition()
@@ -159,8 +187,8 @@ main :: proc() {
 
 			startPos = tempPoint
 
-			fmt.println(startPos)
-			fmt.println(endPos)
+			// fmt.println(startPos)
+			// fmt.println(endPos)
 			append(&drawnLines, Line{startPos, endPos})
 		}else{
 			timePassed += deltaTime
@@ -181,23 +209,72 @@ main :: proc() {
 		for value in drawnLines {
 			rl.DrawLine(value.startPos.x, value.startPos.y, value.endPos.x, value.endPos.y, rl.BLACK)
 		}
-
-		if(rl.IsKeyPressed(rl.KeyboardKey.R)){
-			objectsMap, beginPos, finishPos = setInitialMap()
+		
+		// change level
+		if(rl.IsKeyPressed(rl.KeyboardKey.C)){
+			objectsMap, beginPos, finishPos, qtyObstacles = setInitialMap()
+			objectsMapBeginCopy = objectsMap
+			characterPos = beginPos
+			obstaclesInit = false
+			for len(obstaclesPos) > 0 {
+				pop(&obstaclesPos)
+			}
 		}
+
+		// retry level
+		if(rl.IsKeyPressed(rl.KeyboardKey.R)){
+			objectsMap = objectsMapBeginCopy
+			characterPos = beginPos
+			fmt.println(qtyObstacles)
+			for len(obstaclesPos) > qtyObstacles {
+				pop(&obstaclesPos)
+			}
+		}
+
 		if(rl.IsMouseButtonPressed(rl.MouseButton.LEFT)){
 			temp := rl.GetMousePosition()
 			tempPoint : Point = {x=i32(temp[0]), y=i32(temp[1])}
 			row, column = tempPoint.y/tiles.height, tempPoint.x/tiles.width
 			if(objectsMap[row][column] == int(Values.Empty)){
 				objectsMap[row][column] = int(Values.Obstacle)
+				append(&obstaclesPos, tilePos{int(row), int(column)})
+				fmt.println("Arreglo de obstaculos")
+				fmt.println(obstaclesPos)
 			}
+		}
+
+		if(rl.IsKeyPressed(rl.KeyboardKey.L)){
+			fmt.println(objectsMap)
 		}
 
 		rl.DrawRectangle(i32(finishPos.column) * tiles.width, i32(finishPos.row) * tiles.height, tiles.width, tiles.height, rl.BLACK)
 		rl.DrawRectangle(i32(beginPos.column) * tiles.width, i32(beginPos.row) * tiles.height, tiles.width, tiles.height, rl.BLACK)
 
+		rl.DrawTexture(textureCharacter, (i32(characterPos.column) * tiles.width) + (tiles.width - character.width)/2, (i32(characterPos.row) * tiles.height) + (tiles.height - character.height)/2, rl.WHITE)
+		
+		for i := 0; i < int(rows); i += 1 {
+			for obstacle in obstaclesPos {
+				if(obstacle.row == i){
+					rl.DrawTexture(textureTree, (i32(obstacle.column) * tiles.width) + (tiles.width - tree.width)/2, (i32(obstacle.row) * tiles.height) + (tiles.height - tree.height), rl.WHITE)
+				}
+			}
+		}
+
 		rl.EndDrawing()
-		fmt.println(objectsMap)
+
+		if(rl.IsKeyPressed(rl.KeyboardKey.SPACE)){
+			walk = !walk
+		}
+
+		if walk {
+			cont += deltaTime
+			// Character movement logic
+			if(cont >= timeToWalk && characterPos.column > 0){
+				characterPos.column -= 1
+				cont = 0
+			}
+		}
+
+		// fmt.println(objectsMap)
 	}
 }
