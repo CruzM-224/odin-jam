@@ -48,7 +48,9 @@ main :: proc() {
 	timePassed : f32 = 0
 	timeToDelete : f32 = 0.01
 	cont : f32 = 0
+	cont2 : f32 = 0
 	timeToWalk : f32 = 0.5
+	delay : f32 = 0.5
 
     windowWidth : i32 : 800
     windowHeight : i32 : 600
@@ -186,7 +188,7 @@ main :: proc() {
 		rl.BeginDrawing()
 		rl.ClearBackground(colorMap)
 
-		if !travelEnd {
+		if cont2 < delay {
 			for i : i32 = 0; i < windowHeight; i += tiles.height {
 				for j : i32 = 0; j < windowWidth; j += tiles.width {
 					if(objectsMap[i/tiles.height][j/tiles.width] == int(Values.Path)){
@@ -274,23 +276,27 @@ main :: proc() {
 			if walk {
 				cont += deltaTime
 				// Character movement logic
-				if(cont >= timeToWalk && characterPos.column > 0){
+				if((cont >= timeToWalk || characterPos == beginPos) && characterPos.column > 0){
 					if characterPos != beginPos {
 						append(&characterPosArray, characterPos)
 					}
 					characterPos.column -= 1
 					if(characterPos.column == 0){
 						append(&characterPosArray, characterPos)
+						fmt.println("Hola")
 						travelEnd = true
 						walk = false
+						cont2 = 0
 					}
 					cont = 0
 					fmt.println(characterPosArray)
 				}
 			}
 		}
-
 		if(travelEnd){
+			cont2 += deltaTime
+		}
+		if(cont2 >= delay){
 			score = 0
 			if len(characterPosArray) > len(pathArray) {
 				for position in characterPosArray {
@@ -332,6 +338,7 @@ main :: proc() {
 			}
 			travelEnd = false
 			walk = false
+			cont2 = 0
 		}
 
 		// retry level
@@ -350,6 +357,7 @@ main :: proc() {
 			}
 			travelEnd = false
 			walk = false
+			cont2 = 0
 		}
 
 		rl.EndDrawing()
