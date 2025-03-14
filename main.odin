@@ -36,7 +36,14 @@ main :: proc() {
 
 	obstaclesCap : int = 32
 
-	obstaclesPos := make([dynamic]tilePos, 0, obstaclesCap)
+	obstaclesPos : [dynamic]tilePos
+
+	characterPosArray : [dynamic]tilePos
+
+	pathArray : [dynamic]tilePos
+
+	score : int
+	requireScore : int
 
 	timePassed : f32 = 0
 	timeToDelete : f32 = 0.01
@@ -48,6 +55,7 @@ main :: proc() {
 
 	walk : bool = false
 	obstaclesInit : bool = false
+	travelEnd : bool = false
 
 	tiles : Rectangle : {50, 50}
 	character : Rectangle : {30, 40}
@@ -58,6 +66,12 @@ main :: proc() {
 
 	// Empty: 0, Begin: 1, End: 2, Path: 3, Obstacle: 4
 	Values :: enum {Empty, Begin, End, Path, Obstacle}
+	
+	alignment :: enum {
+        vertical,
+        horizontal,
+        center
+    }
 
 	MapBool :: [rows][columns]bool
 	MapInt :: [rows][columns]int
@@ -146,6 +160,19 @@ main :: proc() {
 	objectsMapBeginCopy = objectsMap
 	characterPos = beginPos
 
+	drawTextAligned :: proc (text: cstring, fontSize: i32, posX : i32 = 0, posY : i32 = 0, centerAlign : alignment, windowWidth, windowHeight : i32) {
+        size := rl.MeasureText(text, fontSize)
+        switch centerAlign {
+        case .vertical:
+            rl.DrawText(text, posX, (windowHeight - fontSize)/2, fontSize, rl.BLACK)
+        case .horizontal:
+            rl.DrawText(text, (windowWidth - size)/2, posY, fontSize, rl.BLACK)
+        case .center:
+            rl.DrawText(text, (windowWidth - size)/2, (windowHeight - fontSize)/2, fontSize, rl.BLACK)
+        case:   fmt.println("Incorrect orientation")
+        }
+    }
+
 	rl.InitWindow(windowWidth, windowHeight, "Game")
 
 	textureCharacter = rl.LoadTexture("sprites/character.png")
@@ -159,57 +186,135 @@ main :: proc() {
 		rl.BeginDrawing()
 		rl.ClearBackground(colorMap)
 
-		for i : i32 = 0; i < windowHeight; i += tiles.height {
-			for j : i32 = 0; j < windowWidth; j += tiles.width {
-				if(objectsMap[i/tiles.height][j/tiles.width] == int(Values.Path)){
-					rl.DrawRectangle(j, i, tiles.width, tiles.height, colorPath)
+		if !travelEnd {
+			for i : i32 = 0; i < windowHeight; i += tiles.height {
+				for j : i32 = 0; j < windowWidth; j += tiles.width {
+					if(objectsMap[i/tiles.height][j/tiles.width] == int(Values.Path)){
+						rl.DrawRectangle(j, i, tiles.width, tiles.height, colorPath)
+					}else{
+						if(objectsMap[i/tiles.height][j/tiles.width] == int(Values.Obstacle)){
+							if !obstaclesInit {
+								append(&obstaclesPos, tilePos{int(i/tiles.height), int(j/tiles.width)})
+							}
+						}
+					}
+					rl.DrawRectangleLines(j, i, tiles.width, tiles.height, rl.BLACK)
+				}
+			}
+			obstaclesInit = true
+
+			if(rl.IsMouseButtonDown(rl.MouseButton.RIGHT)){
+				temp := rl.GetMousePosition()
+				tempPoint : Point = {x=i32(temp[0]), y=i32(temp[1])}
+
+				if(startPos.x != -1){
+					endPos = startPos
 				}else{
-					if(objectsMap[i/tiles.height][j/tiles.width] == int(Values.Obstacle)){
-						if !obstaclesInit {
-							append(&obstaclesPos, tilePos{int(i/tiles.height), int(j/tiles.width)})
+					endPos = tempPoint
+				}
+
+				startPos = tempPoint
+
+				append(&drawnLines, Line{startPos, endPos})
+			}else{
+				timePassed += deltaTime
+				if(timePassed >= timeToDelete){
+					timePassed = 0
+					if(len(drawnLines) > 0){
+						row, column = drawnLines[0].startPos.y/tiles.height, drawnLines[0].startPos.x/tiles.width
+						if(objectsMap[row][column] == int(Values.Empty)){
+							objectsMap[row][column] = int(Values.Path)
+							append(&pathArray, tilePos{int(row), int(column)})
+						}
+						ordered_remove(&drawnLines, 0)
+					}else{
+						startPos = {-1, -1}
+					}
+				}
+			}
+			
+			for value in drawnLines {
+				rl.DrawLine(value.startPos.x, value.startPos.y, value.endPos.x, value.endPos.y, rl.BLACK)
+			}
+			
+
+			if(rl.IsMouseButtonPressed(rl.MouseButton.LEFT)){
+				temp := rl.GetMousePosition()
+				tempPoint : Point = {x=i32(temp[0]), y=i32(temp[1])}
+				row, column = tempPoint.y/tiles.height, tempPoint.x/tiles.width
+				if(objectsMap[row][column] == int(Values.Empty)){
+					objectsMap[row][column] = int(Values.Obstacle)
+					append(&obstaclesPos, tilePos{int(row), int(column)})
+					fmt.println("Arreglo de obstaculos")
+					fmt.println(obstaclesPos)
+				}
+			}
+
+			if(rl.IsKeyPressed(rl.KeyboardKey.L)){
+				fmt.println(objectsMap)
+			}
+
+			rl.DrawRectangle(i32(finishPos.column) * tiles.width, i32(finishPos.row) * tiles.height, tiles.width, tiles.height, rl.BLACK)
+			rl.DrawRectangle(i32(beginPos.column) * tiles.width, i32(beginPos.row) * tiles.height, tiles.width, tiles.height, rl.BLACK)
+
+			rl.DrawTexture(textureCharacter, (i32(characterPos.column) * tiles.width) + (tiles.width - character.width)/2, (i32(characterPos.row) * tiles.height) + (tiles.height - character.height)/2, rl.WHITE)
+			
+			for i := 0; i < int(rows); i += 1 {
+				for obstacle in obstaclesPos {
+					if(obstacle.row == i){
+						rl.DrawTexture(textureTree, (i32(obstacle.column) * tiles.width) + (tiles.width - tree.width)/2, (i32(obstacle.row) * tiles.height) + (tiles.height - tree.height), rl.WHITE)
+					}
+				}
+			}
+
+			if(rl.IsKeyPressed(rl.KeyboardKey.SPACE) && len(drawnLines) == 0){
+				walk = !walk
+			}
+
+			if walk {
+				cont += deltaTime
+				// Character movement logic
+				if(cont >= timeToWalk && characterPos.column > 0){
+					if characterPos != beginPos {
+						append(&characterPosArray, characterPos)
+					}
+					characterPos.column -= 1
+					if(characterPos.column == 0){
+						append(&characterPosArray, characterPos)
+						travelEnd = true
+						walk = false
+					}
+					cont = 0
+					fmt.println(characterPosArray)
+				}
+			}
+		}
+
+		if(travelEnd){
+			score = 0
+			if len(characterPosArray) > len(pathArray) {
+				for position in characterPosArray {
+					for pathPosition in pathArray {
+						if pathPosition == position {
+							score += 1
 						}
 					}
 				}
-				rl.DrawRectangleLines(j, i, tiles.width, tiles.height, rl.BLACK)
-			}
-		}
-		obstaclesInit = true
-
-		if(rl.IsMouseButtonDown(rl.MouseButton.RIGHT)){
-			temp := rl.GetMousePosition()
-			tempPoint : Point = {x=i32(temp[0]), y=i32(temp[1])}
-
-			if(startPos.x != -1){
-				endPos = startPos
+				requireScore = len(characterPosArray)
 			}else{
-				endPos = tempPoint
-			}
-
-			startPos = tempPoint
-
-			// fmt.println(startPos)
-			// fmt.println(endPos)
-			append(&drawnLines, Line{startPos, endPos})
-		}else{
-			timePassed += deltaTime
-			if(timePassed >= timeToDelete){
-				timePassed = 0
-				if(len(drawnLines) > 0){
-					row, column = drawnLines[0].startPos.y/tiles.height, drawnLines[0].startPos.x/tiles.width
-					if(objectsMap[row][column] == int(Values.Empty)){
-						objectsMap[row][column] = int(Values.Path)
+				for position in characterPosArray {
+					for pathPosition in pathArray {
+						if pathPosition == position {
+							score += 1
+						}
 					}
-					ordered_remove(&drawnLines, 0)
-				}else{
-					startPos = {-1, -1}
 				}
+				requireScore = len(pathArray)
 			}
+			rl.DrawRectangle(100, 100, 600, 400, rl.WHITE)
+			drawTextAligned(rl.TextFormat("%d / 100", int(f32(score)/f32(requireScore) * 100)), 60, 0, 0, alignment.center, windowWidth, windowHeight)
 		}
-		
-		for value in drawnLines {
-			rl.DrawLine(value.startPos.x, value.startPos.y, value.endPos.x, value.endPos.y, rl.BLACK)
-		}
-		
+
 		// change level
 		if(rl.IsKeyPressed(rl.KeyboardKey.C)){
 			objectsMap, beginPos, finishPos, qtyObstacles = setInitialMap()
@@ -219,6 +324,14 @@ main :: proc() {
 			for len(obstaclesPos) > 0 {
 				pop(&obstaclesPos)
 			}
+			for len(characterPosArray) > 0 {
+				pop(&characterPosArray)
+			}
+			for len(pathArray) > 0 {
+				pop(&pathArray)
+			}
+			travelEnd = false
+			walk = false
 		}
 
 		// retry level
@@ -229,51 +342,17 @@ main :: proc() {
 			for len(obstaclesPos) > qtyObstacles {
 				pop(&obstaclesPos)
 			}
-		}
-
-		if(rl.IsMouseButtonPressed(rl.MouseButton.LEFT)){
-			temp := rl.GetMousePosition()
-			tempPoint : Point = {x=i32(temp[0]), y=i32(temp[1])}
-			row, column = tempPoint.y/tiles.height, tempPoint.x/tiles.width
-			if(objectsMap[row][column] == int(Values.Empty)){
-				objectsMap[row][column] = int(Values.Obstacle)
-				append(&obstaclesPos, tilePos{int(row), int(column)})
-				fmt.println("Arreglo de obstaculos")
-				fmt.println(obstaclesPos)
+			for len(characterPosArray) > 0 {
+				pop(&characterPosArray)
 			}
-		}
-
-		if(rl.IsKeyPressed(rl.KeyboardKey.L)){
-			fmt.println(objectsMap)
-		}
-
-		rl.DrawRectangle(i32(finishPos.column) * tiles.width, i32(finishPos.row) * tiles.height, tiles.width, tiles.height, rl.BLACK)
-		rl.DrawRectangle(i32(beginPos.column) * tiles.width, i32(beginPos.row) * tiles.height, tiles.width, tiles.height, rl.BLACK)
-
-		rl.DrawTexture(textureCharacter, (i32(characterPos.column) * tiles.width) + (tiles.width - character.width)/2, (i32(characterPos.row) * tiles.height) + (tiles.height - character.height)/2, rl.WHITE)
-		
-		for i := 0; i < int(rows); i += 1 {
-			for obstacle in obstaclesPos {
-				if(obstacle.row == i){
-					rl.DrawTexture(textureTree, (i32(obstacle.column) * tiles.width) + (tiles.width - tree.width)/2, (i32(obstacle.row) * tiles.height) + (tiles.height - tree.height), rl.WHITE)
-				}
+			for len(pathArray) > 0 {
+				pop(&pathArray)
 			}
+			travelEnd = false
+			walk = false
 		}
 
 		rl.EndDrawing()
-
-		if(rl.IsKeyPressed(rl.KeyboardKey.SPACE)){
-			walk = !walk
-		}
-
-		if walk {
-			cont += deltaTime
-			// Character movement logic
-			if(cont >= timeToWalk && characterPos.column > 0){
-				characterPos.column -= 1
-				cont = 0
-			}
-		}
 
 		// fmt.println(objectsMap)
 	}
