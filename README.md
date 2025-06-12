@@ -13,7 +13,7 @@ Construido con [Odin](https://odin-lang.org/) y [Raylib](https://www.raylib.com/
 | **Click Derecho**   | Dibuja el camino que seguirá el personaje.                   |
 | **C**              | Cambia al siguiente nivel.                                   |
 | **R**              | Reinicia el nivel actual.                                    |
-| **Espacio**        | Comienza a mover al personaje siguiendo el camino trazado.   |
+| **Espacio**        | Comienza a mover al personaje siguiendo el camino trazado, o no.   |
 
 **Prioridad de dirección al moverse:** Arriba → Derecha → Abajo → Izquierda
 
