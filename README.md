@@ -1,6 +1,6 @@
 # :evergreen_tree: Desired Paths
 
-**Juego desarrollado para la [Odin 7 Day Jam](https://itch.io/jam/odin-jam).**  
+**Juego desarrollado para la [Odin 7 Day Jam](https://itch.io/jam/odin-7-day-jam).**  
 Construido con [Odin](https://odin-lang.org/) y [Raylib](https://www.raylib.com/).
 
 :video_game: **¡Dibuja caminos, planta árboles y guía al personaje hacia su destino!**
