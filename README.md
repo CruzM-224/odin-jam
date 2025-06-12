@@ -1,4 +1,4 @@
-# :evergreen_tree: Desired Paths:evergreen_tree:
+# :evergreen_tree: Desired Paths
 
 **Juego desarrollado para la [Odin 7 Day Jam](https://itch.io/jam/odin-jam).**  
 Construido con [Odin](https://odin-lang.org/) y [Raylib](https://www.raylib.com/).
