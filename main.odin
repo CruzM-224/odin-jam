@@ -3,6 +3,7 @@ package main
 import rl "vendor:raylib"
 import "core:fmt"
 import "core:math/rand"
+import "core:math"
 
 main :: proc() {
 
@@ -25,6 +26,11 @@ main :: proc() {
 		width, height : i32
 	}
 
+	option :: struct {
+		pos : tilePos,
+		movements, weight : int
+	}
+
 	// palette
 	colorPath : rl.Color = {242, 235, 204, 255}
 	colorMap : rl.Color = {205, 229, 217, 255}
@@ -41,6 +47,8 @@ main :: proc() {
 	characterPosArray : [dynamic]tilePos
 
 	pathArray : [dynamic]tilePos
+
+	calculatedPath : [dynamic]tilePos
 
 	score : int
 	requireScore : int
@@ -175,6 +183,111 @@ main :: proc() {
         }
     }
 
+	pathCalculate :: proc (obstaclesMap: MapInt, beginPos: tilePos, finishPos: tilePos) -> ([dynamic]tilePos) {
+		fmt.println("Iniciando cálculo de ruta...")
+		
+		// Crear un arreglo para el resultado
+		result: [dynamic]tilePos
+		
+		// Matriz para marcar las celdas visitadas
+		visited: [12][16]bool
+		
+		// Almacenar todos los nodos explorados y sus padres
+		Node :: struct {
+			pos: tilePos,
+			parent_index: int,  // Índice del padre en nodes
+		}
+		
+		nodes: [dynamic]Node
+		
+		// Cola para BFS
+		queue: [dynamic]int  // Índices en nodes
+		
+		// Agregar el nodo inicial
+		append(&nodes, Node{beginPos, -1})
+		append(&queue, 0)  // Índice del nodo inicial en nodes
+		
+		found := false
+		target_index := -1
+		
+		// Direcciones: arriba, derecha, abajo, izquierda
+		directions := [4]tilePos{{-1, 0}, {0, 1}, {1, 0}, {0, -1}}
+		
+		fmt.println("Comenzando búsqueda BFS...")
+		
+		// BFS
+		for len(queue) > 0 {
+			// Obtener el índice del nodo actual
+			current_index := queue[0]
+			current_node := nodes[current_index]
+			ordered_remove(&queue, 0)
+			
+			// Si ya visitamos esta posición, continuar
+			if visited[current_node.pos.row][current_node.pos.column] {
+				continue
+			}
+			
+			// Marcar como visitada
+			visited[current_node.pos.row][current_node.pos.column] = true
+			
+			// Si es el destino, terminar
+			if current_node.pos == finishPos {
+				found = true
+				target_index = current_index
+				fmt.println("¡Destino encontrado! Índice:", target_index)
+				break
+			}
+			
+			// Explorar vecinos
+			for dir in directions {
+				next_pos := tilePos{
+					row = current_node.pos.row + dir.row,
+					column = current_node.pos.column + dir.column,
+				}
+				
+				// Verificar límites y obstáculos
+				if next_pos.row < 0 || next_pos.row >= 12 ||
+				   next_pos.column < 0 || next_pos.column >= 16 ||
+				   obstaclesMap[next_pos.row][next_pos.column] == 4 ||
+				   visited[next_pos.row][next_pos.column] {
+					continue
+				}
+				
+				// Crear nuevo nodo
+				new_node_index := len(nodes)
+				append(&nodes, Node{next_pos, current_index})
+				append(&queue, new_node_index)
+			}
+		}
+		
+		// Si no se encontró camino
+		if !found {
+			fmt.println("No se pudo encontrar un camino al destino.")
+			return result
+		}
+		
+		// Reconstruir el camino
+		fmt.println("Reconstruyendo camino...")
+		
+		// Construir el camino desde el destino hasta el inicio
+		path: [dynamic]tilePos
+		
+		// Comenzar desde el destino y retroceder
+		current_index := target_index
+		for current_index >= 0 {
+			append(&path, nodes[current_index].pos)
+			current_index = nodes[current_index].parent_index
+		}
+		
+		// Invertir el camino para obtener el orden correcto (excluyendo la posición inicial)
+		for i := len(path) - 2; i >= 0; i -= 1 {  // Empezamos en len-2 para saltar la posición inicial
+			append(&result, path[i])
+		}
+		
+		fmt.println("Camino calculado. Longitud:", len(result))
+		return result
+	}
+
 	rl.InitWindow(windowWidth, windowHeight, "Game")
 
 	textureCharacter = rl.LoadTexture("sprites/character.png")
@@ -270,26 +383,36 @@ main :: proc() {
 			}
 
 			if(rl.IsKeyPressed(rl.KeyboardKey.SPACE) && len(drawnLines) == 0){
+				fmt.println("Tecla ESPACIO presionada - Iniciando cálculo de ruta")
 				walk = !walk
+				fmt.println("Llamando a pathCalculate...")
+				calculatedPath = pathCalculate(objectsMap, beginPos, finishPos)
+				fmt.println("pathCalculate completado - Longitud de ruta:", len(calculatedPath))
 			}
-
-			if walk {
+			
+			if walk && len(calculatedPath) > 0 {
 				cont += deltaTime
-				// Character movement logic
-				if((cont >= timeToWalk || characterPos == beginPos) && characterPos.column > 0){
+				if(cont >= timeToWalk || characterPos == beginPos) {
 					if characterPos != beginPos {
 						append(&characterPosArray, characterPos)
 					}
-					characterPos.column -= 1
-					if(characterPos.column == 0){
+					
+					// Imprimir información de depuración
+					fmt.println("Moviendo desde", characterPos, "a", calculatedPath[0])
+					
+					characterPos = calculatedPath[0]
+					ordered_remove(&calculatedPath, 0)
+					
+					fmt.println("Quedan", len(calculatedPath), "pasos en el camino")
+					
+					if characterPos == finishPos {
 						append(&characterPosArray, characterPos)
-						fmt.println("Hola")
+						fmt.println("¡Llegó al destino!")
 						travelEnd = true
 						walk = false
-						cont2 = 0
 					}
+					
 					cont = 0
-					fmt.println(characterPosArray)
 				}
 			}
 		}
@@ -306,7 +429,7 @@ main :: proc() {
 						}
 					}
 				}
-				requireScore = len(characterPosArray)
+				requireScore = len(characterPosArray) - 1
 			}else{
 				for position in characterPosArray {
 					for pathPosition in pathArray {
